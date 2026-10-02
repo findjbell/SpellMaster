@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SpellMaster</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.jpg" type="image/jpeg">
+<link rel="apple-touch-icon" href="icon.jpg">
+<meta name="theme-color" content="#ffffff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SpellMaster">
+<!-- Fraunces by Undercase Type, used under the SIL Open Font License. -->
+<style>
+  @font-face {
+    font-family: "Fraunces";
+    src: url("Fraunces.ttf") format("truetype");
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  :root {
+    --row: clamp(28px, 3.6vh, 34px);
+    --ink: #111111;
+    --sans: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+    --serif: "Fraunces", "Iowan Old Style", Palatino, Georgia, serif;
+    color-scheme: light;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    min-height: 100%;
+    display: grid;
+    place-items: center;
+    background: #fff;
+    color: var(--ink);
+    font-family: var(--sans);
+  }
+
+  main {
+    width: min(480px, calc(100vw - 28px));
+    padding: 28px 0 36px;
+  }
+
+  header { text-align: center; margin-bottom: 18px; }
+
+  h1 {
+    margin: 0;
+    font-family: var(--serif);
+    font-weight: 650;
+    font-variation-settings: "opsz" 144, "SOFT" 50, "wght" 650, "WONK" 1;
+    font-size: clamp(46px, 8vw, 68px);
+    line-height: 0.9;
+    letter-spacing: -0.035em;
+    color: #111;
+  }
+
+  .hint {
+    margin: 10px 0 0;
+    color: #444;
+    font-size: 15px;
+    letter-spacing: 0.01em;
+  }
+
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .viewport {
+    position: relative;
+    height: calc(var(--row) * 5);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+    border: 1px solid #e4e4e4;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+  }
+
+  .viewport.is-dragging { cursor: grabbing; }
+
+  .reel {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+  }
+
+  .row {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: var(--row);
+    margin-top: calc(var(--row) * -0.5);
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0 12px 0 14px;
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: calc(var(--row) * 0.86);
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: #111;
+    white-space: nowrap;
+    transform-origin: left center;
+    will-change: transform;
+    pointer-events: none;
+  }
+
+  .payline {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    height: var(--row);
+    transform: translateY(-50%);
+    z-index: 0;
+    background: #f6f6f6;
+    pointer-events: none;
+  }
+
+  .nudges {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  button.nudge {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid #ccc;
+    background: #fff;
+    color: #222;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+  }
+
+  button.nudge:hover { border-color: #111; }
+  button.nudge:active { transform: translateY(1px); }
+  button.nudge:focus-visible {
+    outline: 2px solid #111;
+    outline-offset: 3px;
+  }
+
+  button.nudge svg { width: 18px; height: 18px; display: block; }
+
+  .query { margin-top: 18px; }
+
+  label {
+    display: block;
+    margin: 0 0 8px 2px;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #555;
+  }
+
+  input {
+    width: calc(18ch + 26px);
+    max-width: 100%;
+    appearance: none;
+    font-family: var(--serif);
+    font-size: 22px;
+    font-weight: 500;
+    font-variation-settings: "opsz" 36, "wght" 500, "SOFT" 0, "WONK" 0;
+    letter-spacing: 0.01em;
+    color: #111;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 8px 12px;
+    outline: none;
+  }
+
+  input::placeholder {
+    color: #999;
+    font-weight: 400;
+  }
+
+  input:focus {
+    border-color: #111;
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.08);
+  }
+
+  .meta {
+    min-height: 1.2em;
+    margin: 10px 2px 0;
+    text-align: center;
+    color: #666;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  @media (max-width: 420px) {
+    button.nudge { width: 42px; height: 42px; }
+  }
+</style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>SpellMaster</h1>
+      <p class="hint" id="hint">Type to jump, scroll to spin.</p>
+    </header>
+
+    <div class="stage">
+      <div class="viewport" id="viewport" role="group" aria-label="Dictionary wheel">
+        <div class="reel" id="reel" aria-hidden="true"></div>
+        <div class="payline" aria-hidden="true"></div>
+      </div>
+      <div class="nudges">
+        <button type="button" class="nudge" id="prev" aria-label="Previous word">
+          <svg viewBox="0 0 18 18" aria-hidden="true"><path d="M4 11.5 L9 5.5 L14 11.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <button type="button" class="nudge" id="next" aria-label="Next word">
+          <svg viewBox="0 0 18 18" aria-hidden="true"><path d="M4 6.5 L9 12.5 L14 6.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="query">
+      <label for="q">Letters</label>
+      <input id="q" type="text" maxlength="18" size="18" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="text" placeholder="start typing…" aria-describedby="hint" enterkeyhint="done">
+    </div>
+    <p class="meta" id="meta"></p>
+    <p class="sr" id="live" aria-live="polite" aria-atomic="true"></p>
+  </main>
+
+  <script src="words.js"></script>
+  <script src="freq.js"></script>
+  <script>
+    (function () {
+      const WORDS = window.SPELL_WORDS || [];
+      const MAX = Math.max(0, WORDS.length - 1);
+      const FREQ = decodeFreq(window.SPELL_FREQ);
+
+      function decodeFreq(b64) {
+        if (!b64) return new Uint8Array(0);
+        const bin = atob(b64.replace(/\s+/g, ""));
+        const out = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+        return out;
+      }
+
+      // Norvig rank byte: 0 rarest/palest, 255 most common/boldest.
+      function paintFreq(node, idx) {
+        const level = idx < FREQ.length ? FREQ[idx] : 0;
+        const t = level / 255;
+        const ink = Math.round(190 - t * 178);
+        const weight = Math.round(280 + t * 520);
+        node.style.color = "rgb(" + ink + "," + ink + "," + ink + ")";
+        node.style.fontVariationSettings = '"wght" ' + weight + ', "opsz" 32, "SOFT" 0, "WONK" 0';
+      }
+      const viewport = document.getElementById("viewport");
+      const reel = document.getElementById("reel");
+      const input = document.getElementById("q");
+      const meta = document.getElementById("meta");
+      const live = document.getElementById("live");
+      const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      const POOL = 9;
+      const nodes = [];
+      for (let i = 0; i < POOL; i++) {
+        const el = document.createElement("div");
+        el.className = "row";
+        reel.appendChild(el);
+        nodes.push(el);
+      }
+
+      let rowH = 32;
+      let pos = 0;
+      let target = 0;
+      let glide = null;
+      let drag = null;
+      let repeatTimer = null;
+      let lastT = performance.now();
+      let prevPos = 0;
+      let shown = -1;
+      let spoken = -1;
+      let composing = false;
+
+      function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+      function measure() {
+        const h = viewport.clientHeight;
+        if (h > 0) rowH = h / 5;
+      }
+
+      // First word >= query. That is the first prefix match when one exists,
+      // otherwise the alphabetical insertion point. Past the end, the last word.
+      function findIndex(q) {
+        if (!q) return 0;
+        let lo = 0;
+        let hi = WORDS.length;
+        while (lo < hi) {
+          const mid = (lo + hi) >> 1;
+          if (WORDS[mid] < q) lo = mid + 1;
+          else hi = mid;
+        }
+        return lo >= WORDS.length ? MAX : lo;
+      }
+
+      function sampleGlide(g, t) {
+        const dist = g.to - g.from;
+        const ad = Math.abs(dist);
+        const dir = Math.sign(dist) || 1;
+        const tail = Math.min(8, ad);
+        const head = ad - tail;
+        let along;
+        if (t < 0.3) {
+          const u = t / 0.3;
+          along = head * u * u;
+        } else {
+          const u = (t - 0.3) / 0.7;
+          along = head + tail * (1 - Math.pow(1 - u, 3));
+        }
+        return g.from + dir * along;
+      }
+
+      function jumpTo(idx) {
+        idx = clamp(idx, 0, MAX);
+        drag = null;
+        viewport.classList.remove("is-dragging");
+        const dist = Math.abs(idx - pos);
+        if (reduce || dist <= 12) {
+          glide = null;
+          target = idx;
+          if (reduce) pos = idx;
+          return;
+        }
+        glide = { from: pos, to: idx, t0: performance.now(), dur: 460 };
+      }
+
+      function nudge(dir) {
+        if (glide) {
+          target = pos;
+          glide = null;
+        }
+        const base = dir > 0 ? Math.floor(target + 1e-6) : Math.ceil(target - 1e-6);
+        target = clamp(base + dir, 0, MAX);
+        if (reduce) pos = target;
+      }
+
+      function stopRepeat() {
+        if (repeatTimer) {
+          clearTimeout(repeatTimer);
+          repeatTimer = null;
+        }
+      }
+
+      function beginRepeat(dir) {
+        stopRepeat();
+        nudge(dir);
+        let wait = 420;
+        const tick = function () {
+          nudge(dir);
+          wait = Math.max(48, wait * 0.78);
+          repeatTimer = setTimeout(tick, wait);
+        };
+        repeatTimer = setTimeout(tick, wait);
+      }
+
+      function render(dt) {
+        measure();
+        const anchor = Math.floor(pos);
+        const speed = Math.abs(pos - prevPos) / Math.max(dt, 1);
+        prevPos = pos;
+        let blur = 0;
+        if (!reduce) blur = Math.min(7.5, Math.max(0, (speed - 0.01) * 640));
+        reel.style.filter = blur > 0.35 ? "blur(" + blur.toFixed(2) + "px)" : "";
+
+        for (let i = 0; i < POOL; i++) {
+          const idx = anchor + (i - 4);
+          const node = nodes[i];
+          const dist = idx - pos;
+          if (idx < 0 || idx >= WORDS.length || Math.abs(dist) > 3.15) {
+            node.textContent = "";
+            node.style.opacity = "0";
+            node.dataset.i = "";
+            continue;
+          }
+          if (node.dataset.i !== String(idx)) {
+            node.dataset.i = String(idx);
+            node.textContent = WORDS[idx];
+            paintFreq(node, idx);
+          }
+          node.style.opacity = "1";
+          const len = WORDS[idx].length;
+          const fit = len > 16 ? Math.max(0.62, 16 / len) : 1;
+          node.style.transform = "translate3d(0," + (dist * rowH).toFixed(2) + "px,0) scale(" + fit.toFixed(3) + ")";
+        }
+
+        const nearest = clamp(Math.round(pos), 0, MAX);
+        if (nearest !== shown && WORDS.length) {
+          shown = nearest;
+          const n = (nearest + 1).toLocaleString("en-US");
+          const total = WORDS.length.toLocaleString("en-US");
+          meta.textContent = WORDS[nearest] + "  ·  " + n + " of " + total;
+        }
+        const settled = !drag && !glide && Math.abs(target - pos) < 0.02;
+        if (settled && nearest !== spoken && WORDS.length) {
+          spoken = nearest;
+          live.textContent = WORDS[nearest] + ", " + (nearest + 1) + " of " + WORDS.length;
+        }
+      }
+
+      function frame(now) {
+        const dt = Math.min(40, now - lastT);
+        lastT = now;
+        if (!WORDS.length) {
+          meta.textContent = "Dictionary failed to load.";
+          return;
+        }
+        if (drag) {
+          pos = clamp(drag.origin - (drag.latestY - drag.y0) / rowH, 0, MAX);
+          target = pos;
+        } else if (glide) {
+          const t = (now - glide.t0) / glide.dur;
+          if (t >= 1) {
+            pos = glide.to;
+            target = glide.to;
+            glide = null;
+          } else {
+            pos = sampleGlide(glide, t);
+          }
+        } else if (reduce) {
+          target = clamp(target, 0, MAX);
+          pos = target;
+        } else {
+          target = clamp(target, 0, MAX);
+          const diff = target - pos;
+          if (Math.abs(diff) < 0.0004) pos = target;
+          else pos += diff * (1 - Math.exp(-dt / 120));
+          pos = clamp(pos, 0, MAX);
+        }
+        render(dt);
+        requestAnimationFrame(frame);
+      }
+
+      function onWheel(e) {
+        if (e.ctrlKey) return;
+        e.preventDefault();
+        let dy = e.deltaY;
+        let dx = e.deltaX;
+        if (e.deltaMode === 1) { dy *= rowH; dx *= rowH; }
+        else if (e.deltaMode === 2) { dy *= rowH * 5; dx *= rowH * 5; }
+        const primary = Math.abs(dy) >= Math.abs(dx) ? dy : dx;
+        if (!primary) return;
+        if (drag) return;
+        if (glide) {
+          target = pos;
+          glide = null;
+        }
+        const rows = primary / rowH;
+        target = clamp(target + rows, 0, MAX);
+        if (reduce) pos = target;
+      }
+
+      viewport.addEventListener("pointerdown", function (e) {
+        if (e.button !== 0) return;
+        glide = null;
+        stopRepeat();
+        drag = {
+          y0: e.clientY,
+          latestY: e.clientY,
+          origin: pos,
+          lastY: e.clientY,
+          lastT: performance.now(),
+          vy: 0
+        };
+        viewport.classList.add("is-dragging");
+        viewport.setPointerCapture(e.pointerId);
+      });
+
+      viewport.addEventListener("pointermove", function (e) {
+        if (!drag) return;
+        const now = performance.now();
+        const dt = now - drag.lastT;
+        if (dt > 0) drag.vy = ((drag.lastY - e.clientY) / rowH) / dt;
+        drag.lastY = e.clientY;
+        drag.lastT = now;
+        drag.latestY = e.clientY;
+      });
+
+      function endDrag() {
+        if (!drag) return;
+        const idle = performance.now() - drag.lastT;
+        const projected = idle > 70 || reduce ? 0 : clamp(drag.vy * 340, -28, 28);
+        target = clamp(pos + projected, 0, MAX);
+        drag = null;
+        viewport.classList.remove("is-dragging");
+      }
+
+      viewport.addEventListener("pointerup", endDrag);
+      viewport.addEventListener("pointercancel", endDrag);
+
+      document.addEventListener("wheel", onWheel, { passive: false });
+
+      document.addEventListener("keydown", function (e) {
+        if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
+        if (e.altKey || e.metaKey || e.ctrlKey) return;
+        e.preventDefault();
+        nudge(e.key === "ArrowDown" ? 1 : -1);
+      }, true);
+
+      function bindHold(btn, dir) {
+        btn.addEventListener("pointerdown", function (e) {
+          if (e.button !== 0) return;
+          e.preventDefault();
+          beginRepeat(dir);
+        });
+        btn.addEventListener("keydown", function (e) {
+          if (e.key !== "Enter" && e.key !== " ") return;
+          if (e.repeat) return;
+          e.preventDefault();
+          beginRepeat(dir);
+        });
+        btn.addEventListener("keyup", function (e) {
+          if (e.key === "Enter" || e.key === " ") stopRepeat();
+        });
+      }
+      bindHold(document.getElementById("prev"), -1);
+      bindHold(document.getElementById("next"), 1);
+      window.addEventListener("pointerup", stopRepeat);
+      window.addEventListener("pointercancel", stopRepeat);
+      window.addEventListener("blur", stopRepeat);
+
+      function syncFromInput() {
+        const raw = input.value;
+        const caret = input.selectionStart == null ? raw.length : input.selectionStart;
+        let out = "";
+        let lettersBefore = 0;
+        for (let i = 0; i < raw.length; i++) {
+          const c = raw[i].toLowerCase();
+          if (c >= "a" && c <= "z") {
+            out += c;
+            if (i < caret) lettersBefore++;
+          }
+        }
+        if (out.length > 18) {
+          out = out.slice(0, 18);
+          if (lettersBefore > 18) lettersBefore = 18;
+        }
+        if (out !== raw) {
+          input.value = out;
+          input.setSelectionRange(lettersBefore, lettersBefore);
+        }
+        jumpTo(findIndex(out));
+      }
+
+      input.addEventListener("compositionstart", function () { composing = true; });
+      input.addEventListener("compositionend", function () {
+        composing = false;
+        syncFromInput();
+      });
+      input.addEventListener("input", function () {
+        if (!composing) syncFromInput();
+      });
+
+      window.addEventListener("pointerup", function (e) {
+        const t = e.target;
+        if (t.closest && t.closest("button")) return;
+        input.focus({ preventScroll: true });
+      });
+
+      window.addEventListener("resize", measure);
+      measure();
+      input.focus({ preventScroll: true });
+      if (!WORDS.length) meta.textContent = "Dictionary failed to load.";
+      requestAnimationFrame(frame);
+    })();
+  </script>
+</body>
+</html>
