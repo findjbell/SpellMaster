@@ -4,12 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SpellMaster</title>
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icon.jpg" type="image/jpeg">
-<link rel="apple-touch-icon" href="icon.jpg">
-<meta name="theme-color" content="#ffffff">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="SpellMaster">
 <!-- Fraunces by Undercase Type, used under the SIL Open Font License. -->
 <style>
   @font-face {
@@ -36,7 +30,7 @@
     margin: 0;
     min-height: 100%;
     display: grid;
-    place-items: center;
+    place-items: start center;
     background: #fff;
     color: var(--ink);
     font-family: var(--sans);
@@ -585,12 +579,25 @@
       window.addEventListener("pointerup", function (e) {
         const t = e.target;
         if (t.closest && t.closest("button")) return;
-        input.focus({ preventScroll: true });
+        input.focus();
+        liftInput();
       });
 
+      function liftInput() {
+        const vv = window.visualViewport;
+        const r = input.getBoundingClientRect();
+        const bottom = vv ? vv.offsetTop + vv.height - 16 : window.innerHeight - 16;
+        if (r.bottom > bottom) window.scrollBy(0, r.bottom - bottom);
+      }
+
       window.addEventListener("resize", measure);
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener("resize", liftInput);
+        window.visualViewport.addEventListener("scroll", liftInput);
+      }
       measure();
-      input.focus({ preventScroll: true });
+      input.focus();
+      requestAnimationFrame(liftInput);
       if (!WORDS.length) meta.textContent = "Dictionary failed to load.";
       requestAnimationFrame(frame);
     })();
