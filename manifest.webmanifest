@@ -1,15 +1,11 @@
 {
   "name": "SpellMaster",
   "short_name": "SpellMaster",
-  "start_url": "./index.html",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#ffffff",
   "icons": [
-    {
-      "src": "icon.jpg",
-      "type": "image/jpeg",
-      "purpose": "any"
-    }
+    { "src": "icon.JPG", "sizes": "1024x1024", "type": "image/jpeg", "purpose": "any" }
   ]
 }
