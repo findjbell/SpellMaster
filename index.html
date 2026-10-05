@@ -28,7 +28,7 @@
 
   * { box-sizing: border-box; }
 
-  html, body { height: 100%; }
+  html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
 
   body {
     margin: 0;
@@ -544,64 +544,43 @@
       }
       bindHold(document.getElementById("prev"), -1);
       bindHold(document.getElementById("next"), 1);
-      window.addEventListener("pointerup", stopRepeat);
-      window.addEventListener("pointercancel", stopRepeat);
-      window.addEventListener("blur", stopRepeat);
-
-      function syncFromInput() {
-        const raw = input.value;
-        const caret = input.selectionStart == null ? raw.length : input.selectionStart;
-        let out = "";
-        let lettersBefore = 0;
-        for (let i = 0; i < raw.length; i++) {
-          const c = raw[i].toLowerCase();
-          if (c >= "a" && c <= "z") {
-            out += c;
-            if (i < caret) lettersBefore++;
-          }
-        }
-        if (out.length > 18) {
-          out = out.slice(0, 18);
-          if (lettersBefore > 18) lettersBefore = 18;
-        }
-        if (out !== raw) {
-          input.value = out;
-          input.setSelectionRange(lettersBefore, lettersBefore);
-        }
-        jumpTo(findIndex(out));
-      }
-
-      input.addEventListener("compositionstart", function () { composing = true; });
-      input.addEventListener("compositionend", function () {
-        composing = false;
-        syncFromInput();
-      });
-      input.addEventListener("input", function () {
-        if (!composing) syncFromInput();
-      });
-
       window.addEventListener("pointerup", function (e) {
         const t = e.target;
         if (t.closest && t.closest("button")) return;
-        input.focus();
-        liftInput();
+        input.focus({ preventScroll: true });
+        pinPage();
       });
 
-      function liftInput() {
+      // Keep the page fixed in place: undo any scroll iOS adds when the
+      // keyboard opens or a letter is typed, unless the letter box would
+      // actually be hidden behind the keyboard.
+      function pinPage() {
         const vv = window.visualViewport;
         const r = input.getBoundingClientRect();
-        const bottom = vv ? vv.offsetTop + vv.height - 16 : window.innerHeight - 16;
-        if (r.bottom > bottom) window.scrollBy(0, r.bottom - bottom);
+        const keyboardTop = vv ? vv.height : window.innerHeight;
+        const hidden = r.bottom + (window.scrollY || 0) > keyboardTop - 8;
+        if (!hidden && (window.scrollY !== 0 || (vv && vv.offsetTop !== 0))) {
+          window.scrollTo(0, 0);
+        }
       }
+      function pinSoon() {
+        pinPage();
+        requestAnimationFrame(pinPage);
+        setTimeout(pinPage, 60);
+        setTimeout(pinPage, 300);
+      }
+      input.addEventListener("focus", pinSoon);
+      input.addEventListener("input", pinSoon);
+      window.addEventListener("scroll", pinPage, { passive: true });
 
       window.addEventListener("resize", measure);
       if (window.visualViewport) {
-        window.visualViewport.addEventListener("resize", liftInput);
-        window.visualViewport.addEventListener("scroll", liftInput);
+        window.visualViewport.addEventListener("resize", pinSoon);
+        window.visualViewport.addEventListener("scroll", pinPage);
       }
       measure();
-      input.focus();
-      requestAnimationFrame(liftInput);
+      input.focus({ preventScroll: true });
+      requestAnimationFrame(pinPage);
       if (!WORDS.length) meta.textContent = "Dictionary failed to load.";
       requestAnimationFrame(frame);
     })();
