@@ -544,6 +544,42 @@
       }
       bindHold(document.getElementById("prev"), -1);
       bindHold(document.getElementById("next"), 1);
+      window.addEventListener("pointerup", stopRepeat);
+      window.addEventListener("pointercancel", stopRepeat);
+      window.addEventListener("blur", stopRepeat);
+
+      function syncFromInput() {
+        const raw = input.value;
+        const caret = input.selectionStart == null ? raw.length : input.selectionStart;
+        let out = "";
+        let lettersBefore = 0;
+        for (let i = 0; i < raw.length; i++) {
+          const c = raw[i].toLowerCase();
+          if (c >= "a" && c <= "z") {
+            out += c;
+            if (i < caret) lettersBefore++;
+          }
+        }
+        if (out.length > 18) {
+          out = out.slice(0, 18);
+          if (lettersBefore > 18) lettersBefore = 18;
+        }
+        if (out !== raw) {
+          input.value = out;
+          input.setSelectionRange(lettersBefore, lettersBefore);
+        }
+        jumpTo(findIndex(out));
+      }
+
+      input.addEventListener("compositionstart", function () { composing = true; });
+      input.addEventListener("compositionend", function () {
+        composing = false;
+        syncFromInput();
+      });
+      input.addEventListener("input", function () {
+        if (!composing) syncFromInput();
+      });
+
       window.addEventListener("pointerup", function (e) {
         const t = e.target;
         if (t.closest && t.closest("button")) return;
